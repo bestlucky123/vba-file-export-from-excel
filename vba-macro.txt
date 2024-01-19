@@ -1,0 +1,130 @@
+Private Sub CommandButton1_Click()
+    Dim ws As Worksheet
+    Dim r As Long
+    Dim startRow As Long
+    Dim lastRow As Long
+    Dim lastFileContentRow As Long
+    Dim fileName As String
+    Dim fileContent As String
+    Dim fso As Object
+    Dim txtFile As Object
+    Dim outputFolderPath As String
+    Dim outputFile As String
+    Dim sourceFileName As String
+    Dim folderName As String
+    Dim strText As String
+    
+    ' Generate timestamp
+    Dim timestamp As String
+    timestamp = Format(Now, "YYYYMMDDHHMMSS")
+    
+    
+    ' Create folder name
+    folderName = timestamp & "_CODE"
+    
+    ' Create the folder
+    MkDir ThisWorkbook.Path & "\" & folderName
+    outputFolderPath = ThisWorkbook.Path & "\" & folderName
+    
+    sourceFileName = Dir(ThisWorkbook.Path & "\*.xlsx")
+    
+    Set ws = Workbooks.Open(ThisWorkbook.Path & "\" & sourceFileName).Sheets("SQL_TEMP") ' Adjust the sheet name as needed
+    
+    ' Initialize FileSystemObject
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    ' Find the lastRow by looking for the first cell that ends with ".txt"
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+    
+    ' Find the lastFileContentRow by looking for the first cell that ends with ".txt"
+    lastFileContentRow = ws.Cells(ws.Rows.Count, "B").End(xlUp).Row
+    
+    ' Find the startRow by looking for the first cell that ends with ".txt"
+    r = 1 ' Start from the first row
+    Do While r <= lastRow
+        If Right(ws.Cells(r, 1).Value, 4) = ".txt" Then
+            startRow = r
+            Exit Do
+        End If
+        r = r + 1
+    Loop
+    
+    ' If no startRow is found, exit the sub
+    If startRow = 0 Then
+        MsgBox "Error, No .txt files found in SQL_TEMP sheet."
+        Exit Sub
+    End If
+    
+    ' Loop through each row starting from `startRow` until an empty cell is found in Column A
+    For r = startRow To lastRow
+        ' Get file name from Column A
+        fileName = ws.Cells(r, 1).Value
+
+        ' Determine the path and file name for the output
+        outputFile = outputFolderPath & "\" & fileName
+
+        ' Open the text file for writing
+        Set txtFile = fso.CreateTextFile(outputFile, True, True) ' Overwrite if file already exists
+
+        ' Initialize content string
+        fileContent = ""
+       
+        ' Loop through the rows to concatenate content until a new file name is encountered
+        Do While r <= lastFileContentRow And ws.Cells(r, 1).Value = fileName Or ws.Cells(r, 1).Value = ""
+            ' Get the content from Column B, remove double quotes, and add newline after semicolons
+            fileContent = ws.Cells(r, 2).Value
+            fileContent = Replace(fileContent, """", "")
+            fileContent = Replace(fileContent, ";", ";" & vbLf)
+            
+            ' Write the content to the file if it's not an empty row
+            If fileContent <> "" Then
+                txtFile.WriteLine fileContent
+            End If
+
+            ' Move to next row
+            r = r + 1
+
+            ' Exit the loop if there's no data in the next row's filename column
+            If r = lastFileContentRow Then Exit Do
+        Loop
+        
+        txtFile.Close
+        
+        strText = readTextUTF16$(outputFile)   'read UTF-16 file, used as container for the case of huge text content
+        
+         
+        ' Create ADODB.Stream object
+        Dim stream As Object
+        Set stream = CreateObject("ADODB.Stream")
+        stream.Type = 2 ' Specify stream type as text
+        stream.Charset = "utf-8" ' Set the input charset to UTF-8
+        stream.Open
+        stream.WriteText strText
+        
+        stream.SaveToFile outputFile, 2
+        
+        ' Close the stream
+        stream.Close
+        
+        r = r - 1 ' Adjust because the loop will increment r after finding the empty row
+
+        ' Close the text file
+        txtFile.Close
+    Next r
+
+    ' Clean up
+    Set fso = Nothing
+    Set txtFile = Nothing
+    ws.Parent.Close SaveChanges:=False
+
+    ' Confirmation message
+    MsgBox "Text files have been created successfully."
+End Sub
+
+Function readTextUTF16$(f)
+    With CreateObject("ADODB.Stream")
+        .Charset = "utf-16": .Open
+        .LoadFromFile f
+        readTextUTF16$ = .ReadText
+    End With
+End Function
