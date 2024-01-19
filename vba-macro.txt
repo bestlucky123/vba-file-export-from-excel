@@ -14,22 +14,46 @@ Private Sub CommandButton1_Click()
     Dim folderName As String
     Dim strText As String
     
-    ' Generate timestamp
-    Dim timestamp As String
-    timestamp = Format(Now, "YYYYMMDDHHMMSS")
-    
-    
-    ' Create folder name
-    folderName = timestamp & "_CODE"
-    
-    ' Create the folder
-    MkDir ThisWorkbook.Path & "\" & folderName
-    outputFolderPath = ThisWorkbook.Path & "\" & folderName
     
     sourceFileName = Dir(ThisWorkbook.Path & "\*.xlsx")
     
     Set ws = Workbooks.Open(ThisWorkbook.Path & "\" & sourceFileName).Sheets("SQL_TEMP") ' Adjust the sheet name as needed
     
+    
+    ' Generate timestamp
+    Dim timestamp As String
+    Dim code As String
+    Dim regexPattern As String
+    regexPattern = ".*_(\d+)_.*"
+
+    Dim regex As Object
+    Set regex = CreateObject("VBScript.RegExp")
+
+    With regex
+    .Global = False
+    .IgnoreCase = True
+    .Pattern = regexPattern
+End With
+    
+    Dim matches As Object
+    Set matches = regex.Execute(sourceFileName)
+
+    If matches.Count > 0 Then
+        Dim match As Object
+        Set match = matches(0)
+        
+        code = match.SubMatches(0)
+    End If
+
+    timestamp = Format(Now, "YYYYMMDDHHMMSS")
+    
+    ' Create folder name
+    folderName = timestamp & "_" & code
+    
+    ' Create the folder
+    MkDir ThisWorkbook.Path & "\" & folderName
+    outputFolderPath = ThisWorkbook.Path & "\" & folderName
+
     ' Initialize FileSystemObject
     Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -128,3 +152,4 @@ Function readTextUTF16$(f)
         readTextUTF16$ = .ReadText
     End With
 End Function
+
