@@ -116,24 +116,25 @@ End With
         
         strText = readTextUTF16$(outputFile)   'read UTF-16 file, used as container for the case of huge text content
         
-         
-        ' Create ADODB.Stream object
-        Dim stream As Object
-        Set stream = CreateObject("ADODB.Stream")
-        stream.Type = 2 ' Specify stream type as text
-        stream.Charset = "utf-8" ' Set the input charset to UTF-8
-        stream.Open
-        stream.WriteText strText
-        
-        stream.SaveToFile outputFile, 2
-        
-        ' Close the stream
-        stream.Close
+        IF strText <> "" THEN
+            ' Create ADODB.Stream object
+            Dim stream As Object
+            Set stream = CreateObject("ADODB.Stream")
+            stream.Type = 2 ' Specify stream type as text
+            stream.Charset = "utf-8" ' Set the input charset to UTF-8
+            stream.Open
+            stream.WriteText strText
+            
+            stream.SaveToFile outputFile, 2
+            
+            ' Close the stream
+            stream.Close
+        ELSE
+            fso.DeleteFile outputFile ' Delete the created file if strText is empty
+        END IF
         
         r = r - 1 ' Adjust because the loop will increment r after finding the empty row
 
-        ' Close the text file
-        txtFile.Close
     Next r
 
     ' Clean up
