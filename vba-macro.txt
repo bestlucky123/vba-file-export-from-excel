@@ -94,29 +94,44 @@ End With
         fileContent = ""
        
         ' Loop through the rows to concatenate content until a new file name is encountered
-        Do While r <= lastFileContentRow And ws.Cells(r, 1).Value = fileName Or ws.Cells(r, 1).Value = ""
-            ' Get the content from Column B, remove double quotes, and add newline after semicolons
+        Do While r <= lastFileContentRow And (ws.Cells(r, 1).Value = fileName Or ws.Cells(r, 1).Value = "")
+            ' Get the content from Column B
             fileContent = ws.Cells(r, 2).Value
-            fileContent = Replace(fileContent, """", "")
-            fileContent = Replace(fileContent, ";", ";" & vbLf)
-            
-            ' Write the content to the file if it's not an empty row
-            If fileContent <> "" Then
-                txtFile.WriteLine fileContent
+            If fileContent <> "" And fileContent <> " " Then
+                fileContent = Trim(fileContent)
+                fileContent = Replace(fileContent, """", "")
+                
+                ' Split the content by new line, then iterate over each line to process it
+                Dim contentLines As Variant
+                contentLines = Split(fileContent, ";")
+                
+                Dim line As Variant
+                For Each line In contentLines
+                    line = Trim(line) ' Remove any leading or trailing whitespace
+                    If line <> "" Then ' Check if the line is not empty
+                        ' Write the line to the file, add a semicolon at the end if it's missing
+                        If Not Right(line, 1) = ";" Then
+                            line = line & ";"
+                        End If
+                        txtFile.WriteLine line ' Write the line with a newline character
+                    End If
+                Next line
             End If
-
+            
+            If r = lastFileContentRow Then Exit Do
+                
             ' Move to next row
             r = r + 1
-
-            ' Exit the loop if there's no data in the next row's filename column
-            If r = lastFileContentRow Then Exit Do
         Loop
         
         txtFile.Close
         
         strText = readTextUTF16$(outputFile)   'read UTF-16 file, used as container for the case of huge text content
-        
-        IF strText <> "" THEN
+
+        If strText <> "" Then
+            strText = RemoveEmptyLines(strText)
+
+
             ' Create ADODB.Stream object
             Dim stream As Object
             Set stream = CreateObject("ADODB.Stream")
@@ -129,9 +144,9 @@ End With
             
             ' Close the stream
             stream.Close
-        ELSE
+        Else
             fso.DeleteFile outputFile ' Delete the created file if strText is empty
-        END IF
+        End If
         
         r = r - 1 ' Adjust because the loop will increment r after finding the empty row
 
@@ -154,3 +169,30 @@ Function readTextUTF16$(f)
     End With
 End Function
 
+Function RemoveEmptyLines(text As String) As String
+    Dim lines As Variant
+    Dim result As String
+    Dim line As Variant
+    
+    ' Split the text into lines
+    lines = Split(text, vbCrLf)
+    
+    ' Iterate over each line
+    For Each line In lines
+        line = Trim(line) ' Remove spaces and tab characters from the start and end of the line
+        ' Remove any additional carriage return or newline characters
+        line = Replace(line, vbCr, "")
+        line = Replace(line, vbLf, "")
+        ' If the trimmed line is not empty, add it to the result
+        If line <> "" Then
+            result = result & line & vbLf ' Add the cleaned line back with a newline
+        End If
+    Next
+    
+    ' Remove the trailing newline character if there is one
+    If Right(result, 2) = vbCrLf Then
+        result = Left(result, Len(result) - 2)
+    End If
+    
+    RemoveEmptyLines = result
+End Function
